@@ -53,7 +53,11 @@ class eFELFeature(EFeature, DictMixin):
             exp_std=None,
             threshold=None,
             stimulus_current=None,
-            comment=''):
+            comment='',
+            interp_step=None,
+            double_settings=None,
+            int_settings=None,
+    ):
         """Constructor
 
         Args:
@@ -68,6 +72,11 @@ class eFELFeature(EFeature, DictMixin):
             exp_std(float): experimental standard deviation of this eFeature
             threshold(float): spike detection threshold (mV)
             comment (str): comment
+            interp_step(float): interpolation step (ms)
+            double_settings(dict): dictionary with efel double settings that
+                should be set before extracting the features
+            int_settings(dict): dictionary with efel int settings that
+                should be set before extracting the features
         """
 
         super(eFELFeature, self).__init__(name, comment)
@@ -79,7 +88,10 @@ class eFELFeature(EFeature, DictMixin):
         self.stim_start = stim_start
         self.stim_end = stim_end
         self.threshold = threshold
+        self.interp_step = interp_step
         self.stimulus_current = stimulus_current
+        self.double_settings = double_settings
+        self.int_settings = int_settings
 
     def _construct_efel_trace(self, responses):
         """Construct trace that can be passed to eFEL"""
@@ -88,7 +100,7 @@ class eFELFeature(EFeature, DictMixin):
         if '' not in self.recording_names:
             raise Exception(
                 'eFELFeature: \'\' needs to be in recording_names')
-        for location_name, recording_name in self.recording_names.iteritems():
+        for location_name, recording_name in self.recording_names.items():
             if location_name == '':
                 postfix = ''
             else:
@@ -123,6 +135,17 @@ class eFELFeature(EFeature, DictMixin):
 
         if self.stimulus_current is not None:
             efel.setDoubleSetting('stimulus_current', self.stimulus_current)
+
+        if self.interp_step is not None:
+            efel.setDoubleSetting('interp_step', self.interp_step)
+
+        if self.double_settings is not None:
+            for setting_name, setting_value in self.double_settings.items():
+                efel.setDoubleSetting(setting_name, setting_value)
+
+        if self.int_settings is not None:
+            for setting_name, setting_value in self.int_settings.items():
+                efel.setIntSetting(setting_name, setting_value)
 
         if not efel.FeatureNameExists(self.efel_feature_name):
             raise ValueError("eFEL doesn't have a feature called %s" %

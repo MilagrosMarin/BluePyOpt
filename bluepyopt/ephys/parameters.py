@@ -21,8 +21,6 @@ Copyright (c) 2016, EPFL/Blue Brain Project
 
 # pylint: disable=W0511
 
-from abc import abstractmethod
-
 import logging
 
 import bluepyopt
@@ -52,7 +50,6 @@ class NrnParameter(bluepyopt.parameters.Parameter):
             frozen=frozen,
             bounds=bounds)
 
-    @abstractmethod
     def instantiate(self, sim=None, icell=None):
         """Instantiate the parameter in the simulator"""
         pass
@@ -62,11 +59,49 @@ class NrnParameter(bluepyopt.parameters.Parameter):
         pass
 
 
+class MetaParameter(NrnParameter):
+
+    """Parameter class that controls attributes of other objects"""
+
+    def __init__(
+            self,
+            name,
+            obj=None,
+            attr_name=None,
+            value=None,
+            frozen=False,
+            bounds=None):
+        """Constructor"""
+
+        super(MetaParameter, self).__init__(
+            name,
+            value=value,
+            frozen=frozen,
+            bounds=bounds)
+
+        self.obj = obj
+        self.attr_name = attr_name
+        setattr(self.obj, self.attr_name, value)
+
+    @bluepyopt.parameters.Parameter.value.setter
+    def value(self, _value):
+        """Setter for value"""
+        # Call setter of superclass
+        super(MetaParameter, self.__class__).value.fset(self, _value)
+        setattr(self.obj, self.attr_name, _value)
+
+    def __str__(self):
+        """String representation"""
+        return '%s: %s.%s = %s' % (self.name,
+                                   self.obj.name,
+                                   self.attr_name,
+                                   self.value)
+
+
 class NrnGlobalParameter(NrnParameter, DictMixin):
 
     """Parameter set in the global namespace of neuron"""
-    SERIALIZED_FIELDS = ('name', 'value', 'frozen', 'bounds', 'param_name',
-                         )
+    SERIALIZED_FIELDS = ('name', 'value', 'frozen', 'bounds', 'param_name',)
 
     def __init__(
             self,
@@ -180,7 +215,66 @@ class NrnSectionParameter(NrnParameter, DictMixin):
                                    self.param_name,
                                    self.value if self.frozen else self.bounds)
 
-# TODO change mech_prefix and mech_param to param_name, and maybe add
+
+class NrnPointProcessParameter(NrnParameter, DictMixin):
+
+    """Parameter of a section"""
+    SERIALIZED_FIELDS = ('name', 'value', 'frozen', 'bounds', 'param_name',
+                         'value_scaler', 'locations', )
+
+    def __init__(
+            self,
+            name,
+            value=None,
+            frozen=False,
+            bounds=None,
+            locations=None,
+            param_name=None):
+        """Constructor
+
+        Args:
+            name (str): name of the Parameter
+            value (float): Value for the parameter, required if Frozen=True
+            frozen (bool): Whether the parameter can be varied, or its values
+            is permently set
+            bounds (indexable): two elements; the lower and upper bounds
+                (Optional)
+            locations: an iterator of the point process locations you want to
+                       set the parameters of
+            param_name (str): name of parameter used within the point process
+        """
+
+        super(NrnPointProcessParameter, self).__init__(
+            name,
+            value=value,
+            frozen=frozen,
+            bounds=bounds)
+
+        self.locations = locations
+        self.param_name = param_name
+
+    def instantiate(self, sim=None, icell=None):
+        """Instantiate"""
+        if self.value is None:
+            raise Exception(
+                'NrnSectionParameter: impossible to instantiate parameter "%s" '
+                'without value' % self.name)
+
+        for location in self.locations:
+            for pprocess in location.instantiate(sim=sim, icell=icell):
+                setattr(pprocess, self.param_name, self.value)
+                logger.debug(
+                    'Set %s to %s for point process',
+                    self.param_name,
+                    self.value)
+
+    def __str__(self):
+        """String representation"""
+        return '%s: %s = %s' % (self.name,
+                                self.param_name,
+                                self.value if self.frozen else self.bounds)
+
+# TODO change mech_suffix and mech_param to param_name, and maybe add
 # NrnRangeMechParameter
 
 

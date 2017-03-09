@@ -2,6 +2,8 @@
 
 from __future__ import division
 
+from past.builtins import xrange  # pylint: disable=W0622
+
 """
 Copyright (c) 2016, EPFL/Blue Brain Project
 
@@ -70,21 +72,25 @@ def _calc_fitness_components(population, kappa):
     box_ranges = (numpy.max(population_matrix, axis=0) -
                   numpy.min(population_matrix, axis=0))
 
+    # Replace all possible zeros to avoid division by zero
+    # Basically 0/0 is replaced by 0/1
+    box_ranges[box_ranges == 0] = 1.0
+
     components_matrix = numpy.zeros((pop_len, pop_len))
     for i in xrange(0, pop_len):
         diff = population_matrix - population_matrix[i, :]
         components_matrix[i, :] = numpy.max(
-            numpy.divide(
-                diff,
-                box_ranges),
+            numpy.divide(diff, box_ranges),
             axis=1)
 
     # Calculate max of absolute value of all elements in matrix
     max_absolute_indicator = numpy.max(numpy.abs(components_matrix))
 
     # Normalisation
-    components_matrix = numpy.exp((-1.0 / (kappa * max_absolute_indicator)) *
-                                  components_matrix.T)
+    if max_absolute_indicator != 0:
+        components_matrix = numpy.exp(
+            (-1.0 / (kappa * max_absolute_indicator)) * components_matrix.T)
+
     return components_matrix
 
 
@@ -99,14 +105,20 @@ def _calc_fitnesses(population, components):
         individual.ibea_fitness = ibea_fitness
 
 
+def _choice(seq):
+    """Python 2 implementation of choice"""
+
+    return seq[int(random.random() * len(seq))]
+
+
 def _mating_selection(population, mu, tournament_n):
     """Returns the n_of_parents individuals with the best fitness"""
 
     parents = []
     for _ in xrange(mu):
-        winner = random.choice(population)
+        winner = _choice(population)
         for _ in xrange(tournament_n - 1):
-            individual = random.choice(population)
+            individual = _choice(population)
             # Save winner is element with smallest fitness
             if individual.ibea_fitness < winner.ibea_fitness:
                 winner = individual

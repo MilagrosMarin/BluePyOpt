@@ -27,6 +27,9 @@ import collections
 import logging
 logger = logging.getLogger(__name__)
 
+from . import locations
+from . import simulators
+
 
 class Protocol(object):
 
@@ -130,10 +133,10 @@ class SweepProtocol(Protocol):
 
             try:
                 sim.run(self.total_duration, cvode_active=self.cvode_active)
-            except RuntimeError:
+            except (RuntimeError, simulators.NrnSimulatorException):
                 logger.debug(
                     'SweepProtocol: Running of parameter set {%s} generated '
-                    'RuntimeError, returning None in responses',
+                    'an exception, returning None in responses',
                     str(param_values))
                 responses = {recording.name:
                              None for recording in self.recordings}
@@ -167,9 +170,9 @@ class SweepProtocol(Protocol):
                 """Overwrite reduce"""
                 return (getattr, (meth.__self__, meth.__func__.__name__))
 
-            import copy_reg
+            import copyreg
             import types
-            copy_reg.pickle(types.MethodType, _reduce_method)
+            copyreg.pickle(types.MethodType, _reduce_method)
 
             import multiprocessing
 
@@ -199,7 +202,12 @@ class SweepProtocol(Protocol):
             stimulus.instantiate(sim=sim, icell=icell)
 
         for recording in self.recordings:
-            recording.instantiate(sim=sim, icell=icell)
+            try:
+                recording.instantiate(sim=sim, icell=icell)
+            except locations.EPhysLocInstantiateException:
+                logger.debug(
+                    'SweepProtocol: Instantiating recording generated location '
+                    'exception, will return empty response for this recording')
 
     def destroy(self, sim=None):
         """Destroy protocol"""

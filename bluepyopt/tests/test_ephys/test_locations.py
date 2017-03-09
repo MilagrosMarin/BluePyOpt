@@ -75,7 +75,7 @@ class TestNrnSomaDistanceCompLocation(object):
         cell.testdend.append(sec=dend1)
         cell.testdend.append(sec=dend2)
 
-        nt.assert_raises(Exception,
+        nt.assert_raises(ephys.locations.EPhysLocInstantiateException,
                          self.loc.instantiate,
                          sim=self.sim,
                          icell=cell)
@@ -87,6 +87,7 @@ class TestNrnSomaDistanceCompLocation(object):
         nt.assert_equal(comp, dend2(0.5))
 
 
+@attr('unit')
 def test_serialize():
     """ephys.locations: Test serialize functionality"""
     from bluepyopt.ephys.locations import (
@@ -97,10 +98,13 @@ def test_serialize():
 
     seclist_name, sec_index, comp_x, soma_distance = 'somatic', 0, 0.5, 800
     locations = (
-        NrnSeclistCompLocation(
-            'NrnSeclistCompLocation', seclist_name, sec_index, comp_x), NrnSeclistLocation(
-            'NrnSeclistLocation', seclist_name), NrnSeclistSecLocation(
-            'NrnSeclistSecLocation', seclist_name, sec_index), NrnSomaDistanceCompLocation(
+        NrnSeclistCompLocation('NrnSeclistCompLocation',
+                               seclist_name, sec_index, comp_x),
+        NrnSeclistLocation(
+            'NrnSeclistLocation', seclist_name),
+        NrnSeclistSecLocation(
+            'NrnSeclistSecLocation', seclist_name, sec_index),
+        NrnSomaDistanceCompLocation(
             'NrnSomaDistanceCompLocation', soma_distance, seclist_name),)
 
     for loc in locations:

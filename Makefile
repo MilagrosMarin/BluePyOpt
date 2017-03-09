@@ -1,10 +1,10 @@
-TEST_REQUIREMENTS=nose coverage
+TEST_REQUIREMENTS=nose coverage mock
 
 all: install
 install:
 	pip install -q . --upgrade
 doc: install
-	pip install -q sphinx sphinx-autobuild
+	pip install -q sphinx sphinx-autobuild sphinx_rtd_theme
 	cd docs; $(MAKE) clean; $(MAKE) html
 docopen: doc
 	open docs/build/html/index.html
@@ -21,12 +21,19 @@ l5pc_nrnivmodl:
 l5pc_zip:
 	cd examples/l5pc && \
 		zip -qr l5_config.zip config/ morphology/ mechanisms/ l5pc_model.py l5pc_evaluator.py checkpoints/checkpoint.pkl	
-l5pc_prepare: l5pc_zip l5pc_nbconvert l5pc_nrnivmodl
+l5pc_prepare: l5pc_nbconvert l5pc_nrnivmodl
+stochkv_prepare: 
+	cd examples/stochkv && \
+	nrnivmodl mechanisms
 sc_prepare: jupyter
 	cd examples/simplecell && \
 		jupyter nbconvert --to python simplecell.ipynb && \
 		sed '/get_ipython/d;/plt\./d;/plot_responses/d;/import matplotlib/d' simplecell.py >simplecell.tmp && \
 		mv simplecell.tmp simplecell.py
+coverage_unit: unit
+	cd bluepyopt/tests; coverage html -d coverage_html; open coverage_html/index.html 
+coverage_test: test
+	cd bluepyopt/tests; coverage html -d coverage_html; open coverage_html/index.html 
 jupyter:
 	pip install -q jupyter
 install_test_requirements:
@@ -34,8 +41,8 @@ install_test_requirements:
 test: clean unit functional
 unit: install install_test_requirements
 	cd bluepyopt/tests; nosetests -a 'unit' -s -v -x --with-coverage --cover-xml \
-		--cover-package bluepyopt
-functional: install install_test_requirements l5pc_prepare sc_prepare
+		--cover-package bluepyopt;
+functional: install install_test_requirements stochkv_prepare l5pc_prepare sc_prepare
 	cd bluepyopt/tests; nosetests -a '!unit' -s -v -x --with-coverage --cover-xml \
 		--cover-package bluepyopt
 pypi: test
@@ -51,6 +58,9 @@ clean:
 	rm -rf docs/build
 	rm -rf bluepyopt/tests/.coverage
 	rm -rf bluepyopt/tests/coverage.xml
+	rm -rf bluepyopt/tests/coverage_html
+	rm -rf examples/l5pc/x86_64
+	rm -rf examples/stochkv/x86_64
 	find . -name "*.pyc" -exec rm -rf {} \;
 l5pc_start: install
 	cd examples/l5pc && \
